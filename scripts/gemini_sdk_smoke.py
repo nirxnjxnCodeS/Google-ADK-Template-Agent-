@@ -50,12 +50,16 @@ def classify(exc: Exception) -> str:
             return "network/server"
         return "sdk_usage"
     name = type(exc).__name__.lower()
-    if any(w in name for w in ("connect", "timeout", "network")):
+    if "timeout" in name:
+        return "timeout (server queue/capacity)"
+    if any(w in name for w in ("connect", "network")):
         return "network"
     return "sdk_usage"
 
 
-client = genai.Client()  # SDK reads GEMINI_API_KEY from the environment itself
+# SDK reads GEMINI_API_KEY from the environment itself. 120 s timeout so a server-side
+# queue shows up as a classified failure instead of an indefinite hang. No retries (SDK default).
+client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
 
 CHECKS = [
     ("FAST", os.environ.get("GEMINI_FAST_MODEL", "gemini-3.5-flash-lite"), "FAST_SDK_OK"),
