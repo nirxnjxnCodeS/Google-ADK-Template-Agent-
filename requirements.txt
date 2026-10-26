@@ -1,0 +1,9 @@
+# Major-version ranges per guide §7. Exact installed versions are recorded by
+# scripts/check_install.py into the experiment log.
+# litellm>=1.84 also excludes the compromised 1.82.7 / 1.82.8 releases (March 2026).
+google-adk[eval]>=2.10,<3
+google-genai>=2.26,<3
+litellm>=1.84,<2
+pydantic>=2.8,<3
+pytest>=8,<9
+python-dotenv>=1.0,<2
