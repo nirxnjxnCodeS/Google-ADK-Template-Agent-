@@ -1,0 +1,14 @@
+# Keep secrets OUT of the image. The key reaches the container at run time
+# via docker-compose `env_file`, never baked into an image layer.
+.env
+.env.*
+!.env.example
+
+# Not needed inside the image
+.git
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+results/
