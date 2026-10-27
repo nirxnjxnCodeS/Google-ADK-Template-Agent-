@@ -10,7 +10,12 @@ import os
 from google.adk.agents import LlmAgent, SequentialAgent
 
 from . import model_registry
-from .callbacks import before_agent_guardrail, before_model_guardrail, before_tool_guardrail
+from .callbacks import (
+    before_agent_guardrail,
+    before_model_guardrail,
+    before_tool_guardrail,
+    enforce_human_review,
+)
 from .schemas import TicketFacts, TriageOutput
 from .tools import lookup_triage_policy
 
@@ -65,6 +70,7 @@ def _triage_agent(model, with_facts: bool, entry_guard: bool) -> LlmAgent:
         before_agent_callback=before_agent_guardrail if entry_guard else None,
         before_model_callback=before_model_guardrail,
         before_tool_callback=before_tool_guardrail,
+        after_model_callback=enforce_human_review,  # final answer for Gemini profiles
     )
 
 
@@ -91,12 +97,14 @@ def build_root_agent(profile: str = "gemini_pipeline"):
         # under output_schema, which LiteLLM passes to Ollama as constrained JSON decoding.
         triage = _triage_agent(model_registry.local_model(), with_facts=False, entry_guard=False)
         triage.output_key = "triage_draft"
+        triage.after_model_callback = None  # keep the draft = raw model output; enforce on the final step only
         formatter = LlmAgent(
             name="triage_formatter",
             model=model_registry.local_model(),
             include_contents="none",
             instruction=FORMATTER_INSTRUCTION,
             output_schema=TriageOutput,
+            after_model_callback=enforce_human_review,  # final answer for the local profile
         )
         return SequentialAgent(
             name="local_triage_pipeline",

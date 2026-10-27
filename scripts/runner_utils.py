@@ -81,6 +81,11 @@ async def run_one(prompt: str, profile: str = "gemini_pipeline") -> dict:
         if "LlmCallsLimitExceeded" in type(exc).__name__:
             result["agent_error"] = f"loop_limit: >{MAX_LLM_CALLS} model calls"
             result["text"] = ""  # no valid final answer -> fails every field
+        elif profile == "local" and "timeout" in f"{type(exc).__name__} {exc}".lower():
+            # Local model runs on OUR machine: a >180 s reply is the model's behaviour
+            # (e.g. runaway generation), not an outside outage -> scored as a failure.
+            result["agent_error"] = "local_timeout"
+            result["text"] = ""
         else:  # 503 after retries, timeouts, connection refused, ...
             result["infra_error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
     finally:
@@ -91,6 +96,7 @@ async def run_one(prompt: str, profile: str = "gemini_pipeline") -> dict:
     session = await session_service.get_session(app_name=APP_NAME, user_id=USER_ID, session_id=session_id)
     if session is not None:
         result["guardrail_blocked"] = session.state.get("guardrail_blocked")
+        result["hr_enforced"] = bool(session.state.get("hr_enforced"))
     return result
 
 

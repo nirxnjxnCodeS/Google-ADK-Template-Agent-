@@ -35,6 +35,10 @@ Updated 2026-10-27. Detailed per-run metrics: `results/experiment_log.csv`, `res
 14. runtime — api_server hung on ADK telemetry prompt under TTY → fixed with `docker compose run -T`; HTTP smoke PASS (local).
 15. hardening — ports bound to 127.0.0.1 (api_server has no auth); `.adk/` session DB git/docker-ignored.
 
+16. step1 — human_review enforced in CODE for security/P1 (after_model_callback, final step only; model's raw value kept in state). +6 unit tests (50 total). local run5: G4 100%, strict critical 100%, code fixes needed = 0; 1 local timeout (180 s) → run incomplete.
+17. scoring rule (stricter, from run6): local-profile timeouts = agent failure `local_timeout`, not infra. Gemini 503/504 stay infra.
+18. variance: run4 vs run5 (behaviourally same config, enforcement never fired) — 5/32 cases flipped (billing_invoice, billing_refund, gap_password_colon → pass; bug_single_user, security_phish_reported → fail). Stochastic → G8 needs the 3rd run.
+
 ## Open items (next session)
 
 1. Retry 3.8 Flash: `gemini_sdk_smoke.py` in Docker → close Stage 4; then hosted preflight + evals (gemini_pipeline, gemini_strong_only) x3.
