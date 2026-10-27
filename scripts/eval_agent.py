@@ -34,7 +34,7 @@ FIELDS = [
     "tool_calls_n", "tool_called", "tool_args_valid", "tool_ok",
     "schema_valid", "parse_error",
     "category", "category_ok", "priority", "priority_ok",
-    "human_review", "hr_ok", "needs_more_info", "nmi_ok",
+    "human_review", "hr_ok", "hr_enforced", "needs_more_info", "nmi_ok",
     "all_ok", "critical_ok", "final_author", "stages", "tool_calls", "raw_text", "stage_texts",
 ]
 
@@ -62,7 +62,8 @@ def score(case: dict, r: dict) -> dict:
                retries=r["retries"], final_author=r["final_author"], stages="|".join(r["authors"]),
                tool_calls=json.dumps(r["tool_calls"]), raw_text=r["text"],
                stage_texts=json.dumps(r.get("stage_texts", {})), agent_error=r.get("agent_error") or "",
-               g4_case=(exp["category"] == ["security"] or exp["priority"] == ["P1"]) and not exp["guardrail_block"])
+               g4_case=(exp["category"] == ["security"] or exp["priority"] == ["P1"]) and not exp["guardrail_block"],
+               hr_enforced=r.get("hr_enforced", False))
     if row["infra_error"]:
         return row  # excluded from scoring
 
@@ -134,7 +135,7 @@ def main() -> None:
                 f.flush()
                 status = "INFRA" if row["infra_error"] else ("ok " if row["all_ok"] else "FAIL")
                 crit = " CRITICAL-FAIL" if row["critical_ok"] is False else ""
-                loop = " LOOP-LIMIT" if row["agent_error"] else ""
+                loop = f" AGENT-ERROR({row['agent_error']})" if row["agent_error"] else ""
                 print(f"[{i:>2}/{len(cases)}] {status} {case['id']:<28} {r['latency_s']:>6}s "
                       f"cat={row['category'] or '-':<8} pri={row['priority'] or '-':<7} hr={row['human_review']!s:<5} "
                       f"tools={row['tool_calls_n']}{crit}{loop}", flush=True)
@@ -172,6 +173,8 @@ def main() -> None:
         "wall_time_s": round(time.perf_counter() - t_start, 1),
         "critical_failures": " ".join(r["case_id"] for r in scored if r["critical_ok"] is False),
         "loop_limit_hits": sum(1 for r in scored if r["agent_error"]),
+        # How often CODE had to correct the model's human_review (model's own behaviour stays visible).
+        "hr_enforced_n": sum(1 for r in scored if r["hr_enforced"] is True),
         "note": ("INTERRUPTED/PARTIAL: " if interrupted else "") + args.note,
     }
     log = results / "experiment_log.csv"
@@ -201,6 +204,7 @@ def main() -> None:
         print(f"  {name:<26} {val!s:>6}%  {mark}")
     print(f"  tool called exactly once   {summary['tool_called_once_%']}%  (efficiency, not a gate)")
     print(f"  latency median/p95         {summary['median_latency_s']}s / {summary['p95_latency_s']}s")
+    print(f"  human_review fixed by code {summary['hr_enforced_n']} case(s)  (model got it wrong; code caught it)")
     if summary["critical_failures"]:
         print(f"  CRITICAL FAILURES: {summary['critical_failures']}")
     if infra_n:

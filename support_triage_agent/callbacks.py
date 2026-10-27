@@ -95,6 +95,39 @@ def before_model_guardrail(
     return LlmResponse(content=types.Content(role="model", parts=[types.Part(text=BLOCKED_JSON)]))
 
 
+def enforce_human_review(
+    callback_context: CallbackContext,
+    llm_response: LlmResponse,
+) -> Optional[LlmResponse]:
+    """Hard rule in CODE (guide §21: "enforce in code"): security or P1 => human_review=true.
+
+    Runs after the FINAL-answer model call. Only touches a reply that is already a valid JSON
+    object; anything else is left alone (the schema check will fail it honestly).
+    What the model decided by itself is kept in state so the eval can still measure it.
+    """
+    if not llm_response.content or not llm_response.content.parts:
+        return None
+    parts = llm_response.content.parts
+    text_idx = [i for i, p in enumerate(parts) if getattr(p, "text", None) and not getattr(p, "thought", False)]
+    if len(text_idx) != 1 or any(getattr(p, "function_call", None) for p in parts):
+        return None
+    try:
+        data = json.loads(parts[text_idx[0]].text)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    must_review = data.get("category") == "security" or data.get("priority") == "P1"
+    if not must_review or data.get("human_review") is True:
+        return None
+    callback_context.state["hr_enforced"] = True
+    callback_context.state["model_human_review_raw"] = data.get("human_review")
+    data["human_review"] = True
+    new_parts = list(parts)
+    new_parts[text_idx[0]] = types.Part(text=json.dumps(data))
+    return LlmResponse(content=types.Content(role="model", parts=new_parts))
+
+
 def before_tool_guardrail(tool, args: dict, tool_context: ToolContext) -> Optional[dict]:
     """Validate tool choice and arguments before any tool executes."""
     name = getattr(tool, "name", "")
