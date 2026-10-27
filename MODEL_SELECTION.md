@@ -26,6 +26,15 @@ kept only if the locked eval shows a measurable gain worth its cost/latency.
   ai.google.dev/gemini-api/docs/deprecations with no shutdown date.
 - 2026-10-26: `qwen2.5:7b-instruct` exists on ollama.com (4.7 GB, Q4_K_M).
 
+## Deviation: temporary strong model (2026-10-27)
+
+- `gemini-3.8-flash` returned 503 / 504 on every attempt for ~24 h (host and Docker; 1 success
+  in 260 s on 2026-10-26). Other free-tier users report the same on the Gemini forum.
+- `gemini-3.6-flash` (Google stable, no shutdown date) passed the SDK smoke test: exact match, 2.14 s.
+- Hosted evals therefore run with `GEMINI_STRONG_MODEL=gemini-3.6-flash` passed via `-e` per command;
+  `.env` and the contract above are unchanged. The experiment log records the actual model per run.
+- 3.8 Flash must still be evaluated on the same locked set before any final decision that names it.
+
 ## Decision (fill in after Stage 12)
 
 _Pending measured results._

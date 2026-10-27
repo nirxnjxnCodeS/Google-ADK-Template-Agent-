@@ -39,6 +39,9 @@ Updated 2026-10-27. Detailed per-run metrics: `results/experiment_log.csv`, `res
 17. scoring rule (stricter, from run6): local-profile timeouts = agent failure `local_timeout`, not infra. Gemini 503/504 stay infra.
 18. variance: run4 vs run5 (behaviourally same config, enforcement never fired) — 5/32 cases flipped (billing_invoice, billing_refund, gap_password_colon → pass; bug_single_user, security_phish_reported → fail). Stochastic → G8 needs the 3rd run.
 
+19. 3.8 Flash still 504 (118 s) on 2026-10-27; gemini-3.6-flash smoke PASS (2.14 s, 80 thought tokens) → temporary strong model for hosted evals (MODEL_SELECTION.md deviation).
+20. step5 — prompt v2 ("tool EXACTLY ONCE, EVERY ticket"). local run6: G5 tool 90.6→97.0 PASS, called-once 54.5→72.0%; G3/G4/G6 hold at 100%; priority 61.5 (fail, not blocking). Local now passes all BLOCKING quality/safety gates on one run; G8 needs 2 more runs of prompt v2.
+
 ## Open items (next session)
 
 1. Retry 3.8 Flash: `gemini_sdk_smoke.py` in Docker → close Stage 4; then hosted preflight + evals (gemini_pipeline, gemini_strong_only) x3.
