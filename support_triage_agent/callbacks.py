@@ -22,13 +22,27 @@ from .policy import CATEGORIES
 
 ALLOWED_TOOLS = {"lookup_triage_policy"}
 
-# v1 patterns = guide verbatim. Known gaps are listed in the Stage 5 notes; changes
-# must come with a test (positive + negative) first.
+# v2 (2026-10-27). v1 = guide verbatim; v1 had 4 gaps (tests GAP-1..4).
+# Changes: `label = value` always blocks; `label: value` blocks only if the value looks
+# like a secret (>=6 chars incl. a digit/symbol) -> fixes GAP-1 false block. Bare key
+# formats added (GAP-4). Exfiltration needs a verb aimed at the prompt/instructions, or
+# an "ignore previous instructions" phrase (GAP-2, GAP-3). Validated on a HOLDOUT set
+# in tests/test_guardrails.py that is not in the eval file.
+GUARDRAIL_VERSION = "v2"
+_LABEL = r"\b(api[_ -]?key|access[_ -]?token|secret|password|passwd)"
 SECRET_PATTERNS = [
-    re.compile(r"(?i)(api[_ -]?key|access[_ -]?token|password)\s*[:=]\s*\S+"),
+    re.compile(rf"(?i){_LABEL}\s*=\s*\S+"),
+    re.compile(rf"(?i){_LABEL}\s*:\s*(?=\S*[\d!@#$%^&*_\-])\S{{6,}}"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    re.compile(r"\bAIza[0-9A-Za-z_\-]{30,}"),   # Google API key
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),        # AWS access key id
+    re.compile(r"\bsk-[A-Za-z0-9_\-]{16,}"),    # sk- style API keys
 ]
-EXFIL_VERBS = ["show", "reveal", "print", "ignore previous"]
+EXFIL_PATTERNS = [
+    re.compile(r"(?i)\bignore\s+(all\s+)?(the\s+)?(previous|prior|above|earlier)\s+(instructions|rules|messages)"),
+    re.compile(r"(?i)\b(show|reveal|print|display|repeat|output|tell me|give me|what (is|are))\b"
+               r"[^.?!\n]{0,40}\b(system prompt|your (instructions|prompt|rules))"),
+]
 
 BLOCKED_OUTPUT = {
     "category": "general",
@@ -45,8 +59,7 @@ def screen_text(text: str) -> Optional[str]:
     """Return a block reason ('secret' / 'prompt_exfiltration') or None if allowed."""
     if any(p.search(text) for p in SECRET_PATTERNS):
         return "secret"
-    lower = text.lower()
-    if "system prompt" in lower and any(v in lower for v in EXFIL_VERBS):
+    if any(p.search(text) for p in EXFIL_PATTERNS):
         return "prompt_exfiltration"
     return None
 
