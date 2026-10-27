@@ -11,7 +11,7 @@ from google.adk.agents import LlmAgent, SequentialAgent
 
 from . import model_registry
 from .callbacks import before_agent_guardrail, before_model_guardrail, before_tool_guardrail
-from .schemas import TicketFacts
+from .schemas import TicketFacts, TriageOutput
 from .tools import lookup_triage_policy
 
 PROFILES = ("gemini_pipeline", "gemini_strong_only", "local")
@@ -46,6 +46,16 @@ Pre-extracted ticket facts from an earlier step (may be imperfect; the original 
 """
 
 
+FORMATTER_INSTRUCTION = """You are a strict formatter. Below is a triage decision written by another step.
+It may contain stray words before or after the JSON. Re-emit the SAME decision as the required JSON object.
+Copy category, priority, human_review and needs_more_info EXACTLY as decided. Do not re-judge the ticket.
+If a field is missing, use: priority "UNKNOWN", needs_more_info true, human_review true.
+
+Triage decision:
+{triage_draft}
+"""
+
+
 def _triage_agent(model, with_facts: bool, entry_guard: bool) -> LlmAgent:
     return LlmAgent(
         name="support_triage_decision",
@@ -76,7 +86,23 @@ def build_root_agent(profile: str = "gemini_pipeline"):
     if profile == "gemini_strong_only":
         return _triage_agent(model_registry.strong_model(), with_facts=False, entry_guard=True)
     if profile == "local":
-        return _triage_agent(model_registry.local_model(), with_facts=False, entry_guard=True)
+        # Fix #2 (guide §26): Qwen's free-text answer after a tool call sometimes starts with
+        # junk tokens. Triage keeps the tool; a tool-less formatter re-emits the SAME decision
+        # under output_schema, which LiteLLM passes to Ollama as constrained JSON decoding.
+        triage = _triage_agent(model_registry.local_model(), with_facts=False, entry_guard=False)
+        triage.output_key = "triage_draft"
+        formatter = LlmAgent(
+            name="triage_formatter",
+            model=model_registry.local_model(),
+            include_contents="none",
+            instruction=FORMATTER_INSTRUCTION,
+            output_schema=TriageOutput,
+        )
+        return SequentialAgent(
+            name="local_triage_pipeline",
+            sub_agents=[triage, formatter],
+            before_agent_callback=before_agent_guardrail,
+        )
     raise ValueError(f"unknown profile {profile!r}; expected one of {PROFILES}")
 
 

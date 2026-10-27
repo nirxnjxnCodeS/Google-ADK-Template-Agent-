@@ -11,6 +11,7 @@ import time
 import uuid
 from typing import Optional
 
+from google.adk.agents.run_config import RunConfig
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -21,6 +22,9 @@ from support_triage_agent.schemas import TriageOutput
 
 APP_NAME = "support_triage_agent"
 USER_ID = "eval"
+# Fix #3 (all profiles): cap model calls per ticket. A normal run needs <=5
+# (extractor/formatter + tool call + answer). Local run2 looped 36 tool calls / 631 s.
+MAX_LLM_CALLS = 10
 
 
 class _RetryCounter(logging.Handler):
@@ -50,11 +54,15 @@ async def run_one(prompt: str, profile: str = "gemini_pipeline") -> dict:
         "profile": profile, "text": "", "final_author": None, "authors": [],
         "tool_calls": [], "tool_responses": [], "latency_s": None, "retries": 0,
         "infra_error": None, "event_error": None, "guardrail_blocked": None,
+        "stage_texts": {},  # final text per stage -> lets us audit whether a formatter changed a decision
+        "agent_error": None,  # agent-caused abort (e.g. loop limit) -> scored as a FAILURE, not infra
     }
     t0 = time.perf_counter()
     try:
         msg = types.Content(role="user", parts=[types.Part(text=prompt)])
-        async for event in runner.run_async(user_id=USER_ID, session_id=session_id, new_message=msg):
+        run_config = RunConfig(max_llm_calls=MAX_LLM_CALLS)
+        async for event in runner.run_async(user_id=USER_ID, session_id=session_id, new_message=msg,
+                                            run_config=run_config):
             if event.author and (not result["authors"] or result["authors"][-1] != event.author):
                 result["authors"].append(event.author)
             for fc in event.get_function_calls() or []:
@@ -68,8 +76,13 @@ async def run_one(prompt: str, profile: str = "gemini_pipeline") -> dict:
                 if text.strip():
                     result["text"] = text.strip()
                     result["final_author"] = event.author
-    except Exception as exc:  # 503 after retries, timeouts, connection refused, ...
-        result["infra_error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+                    result["stage_texts"][event.author] = text.strip()[:600]
+    except Exception as exc:
+        if "LlmCallsLimitExceeded" in type(exc).__name__:
+            result["agent_error"] = f"loop_limit: >{MAX_LLM_CALLS} model calls"
+            result["text"] = ""  # no valid final answer -> fails every field
+        else:  # 503 after retries, timeouts, connection refused, ...
+            result["infra_error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
     finally:
         result["latency_s"] = round(time.perf_counter() - t0, 2)
         result["retries"] = counter.count

@@ -29,13 +29,13 @@ from support_triage_agent.policy import CATEGORIES, POLICY_VERSION
 
 TOOL = "lookup_triage_policy"
 FIELDS = [
-    "case_id", "tags", "critical", "infra_error", "latency_s", "retries",
+    "case_id", "tags", "critical", "g4_case", "infra_error", "agent_error", "latency_s", "retries",
     "blocked", "expected_block", "guard_ok",
     "tool_calls_n", "tool_called", "tool_args_valid", "tool_ok",
     "schema_valid", "parse_error",
     "category", "category_ok", "priority", "priority_ok",
     "human_review", "hr_ok", "needs_more_info", "nmi_ok",
-    "all_ok", "critical_ok", "final_author", "stages", "tool_calls", "raw_text",
+    "all_ok", "critical_ok", "final_author", "stages", "tool_calls", "raw_text", "stage_texts",
 ]
 
 
@@ -60,7 +60,9 @@ def score(case: dict, r: dict) -> dict:
     row.update(case_id=case["id"], tags="|".join(case.get("tags", [])), critical=case["critical"],
                infra_error=r["infra_error"] or r["event_error"] or "", latency_s=r["latency_s"],
                retries=r["retries"], final_author=r["final_author"], stages="|".join(r["authors"]),
-               tool_calls=json.dumps(r["tool_calls"]), raw_text=r["text"])
+               tool_calls=json.dumps(r["tool_calls"]), raw_text=r["text"],
+               stage_texts=json.dumps(r.get("stage_texts", {})), agent_error=r.get("agent_error") or "",
+               g4_case=(exp["category"] == ["security"] or exp["priority"] == ["P1"]) and not exp["guardrail_block"])
     if row["infra_error"]:
         return row  # excluded from scoring
 
@@ -113,25 +115,37 @@ def main() -> None:
     run_ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     print(f"profile={args.profile} cases={len(cases)} dataset={dataset_hash} models={describe(args.profile)}")
 
-    rows = []
-    t_start = time.perf_counter()
-    for i, case in enumerate(cases, 1):
-        r = run_sync(case["prompt"], args.profile)
-        row = score(case, r)
-        rows.append(row)
-        status = "INFRA" if row["infra_error"] else ("ok " if row["all_ok"] else "FAIL")
-        crit = " CRITICAL-FAIL" if row["critical_ok"] is False else ""
-        print(f"[{i:>2}/{len(cases)}] {status} {case['id']:<28} {r['latency_s']:>6}s "
-              f"cat={row['category'] or '-':<8} pri={row['priority'] or '-':<7} hr={row['human_review']!s:<5} "
-              f"tools={row['tool_calls_n']}{crit}")
-
     results = Path("results")
     (results / "runs").mkdir(parents=True, exist_ok=True)
-    for path in (results / f"{args.profile}_eval_results.csv", results / "runs" / f"{args.profile}_{run_ts}.csv"):
-        with path.open("w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=FIELDS)
-            w.writeheader()
-            w.writerows(rows)
+    run_csv = results / "runs" / f"{args.profile}_{run_ts}.csv"
+    rows = []
+    interrupted = False
+    t_start = time.perf_counter()
+    # Rows are written as they finish, so Ctrl+C or a crash never loses completed cases.
+    with run_csv.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=FIELDS)
+        w.writeheader()
+        try:
+            for i, case in enumerate(cases, 1):
+                r = run_sync(case["prompt"], args.profile)
+                row = score(case, r)
+                rows.append(row)
+                w.writerow(row)
+                f.flush()
+                status = "INFRA" if row["infra_error"] else ("ok " if row["all_ok"] else "FAIL")
+                crit = " CRITICAL-FAIL" if row["critical_ok"] is False else ""
+                loop = " LOOP-LIMIT" if row["agent_error"] else ""
+                print(f"[{i:>2}/{len(cases)}] {status} {case['id']:<28} {r['latency_s']:>6}s "
+                      f"cat={row['category'] or '-':<8} pri={row['priority'] or '-':<7} hr={row['human_review']!s:<5} "
+                      f"tools={row['tool_calls_n']}{crit}{loop}", flush=True)
+        except KeyboardInterrupt:
+            interrupted = True
+            print(f"\nINTERRUPTED after {len(rows)}/{len(cases)} cases -- partial results kept, NOT a valid run.")
+
+    with (results / f"{args.profile}_eval_results.csv").open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=FIELDS)
+        w.writeheader()
+        w.writerows(rows)
 
     scored = [r for r in rows if not r["infra_error"]]
     infra_n = len(rows) - len(scored)
@@ -150,12 +164,15 @@ def main() -> None:
         "tool_args_valid_%": _rate(scored, "tool_args_valid", lambda r: r["tool_called"] is True),
         "tool_called_once_%": _rate([dict(r, once=r["tool_calls_n"] == 1) for r in scored if r["tool_called"] is True], "once"),
         "guardrail_%": _rate(scored, "guard_ok", lambda r: "guardrail" in r["tags"]),
-        "critical_gate_%": _rate(scored, "critical_ok", is_crit),
+        "critical_gate_%": _rate(scored, "critical_ok", is_crit),  # strict: every critical-tagged case
+        # Guide G4 definition: human_review correct on every security / P1 ticket (not blocked ones).
+        "g4_security_p1_hr_%": _rate(scored, "hr_ok", lambda r: r["g4_case"] is True and r["blocked"] is False),
         "all_fields_%": _rate(scored, "all_ok"),
         "median_latency_s": statistics.median(lat) if lat else None, "p95_latency_s": p95,
         "wall_time_s": round(time.perf_counter() - t_start, 1),
         "critical_failures": " ".join(r["case_id"] for r in scored if r["critical_ok"] is False),
-        "note": args.note,
+        "loop_limit_hits": sum(1 for r in scored if r["agent_error"]),
+        "note": ("INTERRUPTED/PARTIAL: " if interrupted else "") + args.note,
     }
     log = results / "experiment_log.csv"
     old_rows = list(csv.DictReader(log.open())) if log.exists() else []
@@ -174,7 +191,8 @@ def main() -> None:
         ("G5 tool behavior >=95", summary["tool_behavior_%"], 95),
         ("G5 valid tool args =100", summary["tool_args_valid_%"], 100),
         ("G3 guardrail =100", summary["guardrail_%"], 100),
-        ("G4 critical gate =100", summary["critical_gate_%"], 100),
+        ("G4 security/P1 HR =100", summary["g4_security_p1_hr_%"], 100),
+        ("   strict critical (info)", summary["critical_gate_%"], 100),
         ("G7 all-fields >=80", summary["all_fields_%"], 80),
     ]
     print(f"\n=== {summary['run_id']}  scored {len(scored)}/{len(rows)}  infra_errors={infra_n} ===")
