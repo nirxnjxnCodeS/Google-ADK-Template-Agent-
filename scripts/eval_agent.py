@@ -24,6 +24,7 @@ from pathlib import Path
 
 from scripts.runner_utils import parse_output, run_sync
 from support_triage_agent.model_registry import describe
+from support_triage_agent.agent import PROMPT_VERSION
 from support_triage_agent.callbacks import GUARDRAIL_VERSION
 from support_triage_agent.policy import CATEGORIES, POLICY_VERSION
 
@@ -156,7 +157,7 @@ def main() -> None:
     summary = {
         "run_id": f"{args.profile}-{run_ts}", "date": run_ts[:8], "git_commit": _git_commit(),
         "google_adk": version("google-adk"), "google_genai": version("google-genai"), "litellm": version("litellm"),
-        "profile": args.profile, "models": json.dumps(describe(args.profile)), "policy_version": POLICY_VERSION, "guardrail_version": GUARDRAIL_VERSION,
+        "profile": args.profile, "models": json.dumps(describe(args.profile)), "policy_version": POLICY_VERSION, "guardrail_version": GUARDRAIL_VERSION, "prompt_version": PROMPT_VERSION,
         "dataset": f"triage_cases_v1:{dataset_hash}", "cases": len(rows), "scored": len(scored), "infra_errors": infra_n,
         "schema_valid_%": _rate(scored, "schema_valid"),
         "category_%": _rate(scored, "category_ok", lambda r: not r["blocked"]),
