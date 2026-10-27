@@ -9,5 +9,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# --- ADK runtime session/artifact storage (contains ticket text) ---
+.adk/
+
 # --- OS noise ---
 .DS_Store
