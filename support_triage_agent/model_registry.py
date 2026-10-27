@@ -42,7 +42,9 @@ def local_model():
     os.environ.setdefault("OLLAMA_API_BASE", api_base)  # ADK docs: LiteLLM reads the env var too
     name = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b-instruct")
     # ollama_chat (not ollama): plain `ollama` can loop on tool calls (ADK docs warning).
-    return LiteLlm(model=f"ollama_chat/{name}", api_base=api_base)
+    # timeout (s): a stuck local call becomes a classified error instead of an endless wait.
+    return LiteLlm(model=f"ollama_chat/{name}", api_base=api_base,
+                   timeout=int(os.environ.get("OLLAMA_TIMEOUT_S", "180")))
 
 
 def describe(profile: str) -> dict:
