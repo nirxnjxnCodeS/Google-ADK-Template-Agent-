@@ -42,6 +42,11 @@ Updated 2026-10-27. Detailed per-run metrics: `results/experiment_log.csv`, `res
 19. 3.8 Flash still 504 (118 s) on 2026-10-27; gemini-3.6-flash smoke PASS (2.14 s, 80 thought tokens) → temporary strong model for hosted evals (MODEL_SELECTION.md deviation).
 20. step5 — prompt v2 ("tool EXACTLY ONCE, EVERY ticket"). local run6: G5 tool 90.6→97.0 PASS, called-once 54.5→72.0%; G3/G4/G6 hold at 100%; priority 61.5 (fail, not blocking). Local now passes all BLOCKING quality/safety gates on one run; G8 needs 2 more runs of prompt v2.
 
+21. hosted: gemini_pipeline + gemini_strong_only preflight PASS on 3.6 Flash; free tier = 5 RPM / **20 RPD** → hosted evals resumable, ~3 days/run (no hosted G8).
+22. glados (office LAN Ollama 0.33.3): nemotron-3.5-lightning:30b-a3b; glados_only preflight PASS (think on, 56/200 s). Think OFF: 33/12 s but 5 tool calls + prose → FAIL → keep thinking ON.
+23. local G8: 4 complete runs of prompt v2 (120721, 065123, 071432, 095945) — G3/G4/G5/G6 pass in ALL 4; category 84.6–92.3, priority 61.5–69.2, all-fields 60.6–69.7, median latency 27.8–46.7 s (host load). → **G8 PASS (explainable variance)**.
+24. glados_only run1: priority 92.3, category 96.2, tool 100%, called-once 100%, all-fields 72.7 — but **G4 83.3% FAIL**: bug_outage ("down for every customer") → general/P4/no review; code HR rule could not catch it (rule keys on category/priority the model chose). Latency median 52 s, p95 203 s, max 318 s.
+
 ## Open items (next session)
 
 1. Retry 3.8 Flash: `gemini_sdk_smoke.py` in Docker → close Stage 4; then hosted preflight + evals (gemini_pipeline, gemini_strong_only) x3.
