@@ -97,6 +97,23 @@ def score(case: dict, r: dict) -> dict:
     return row
 
 
+def _coerce(row: dict) -> dict:
+    """CSV gives strings; restore the types score() produces so resumed rows score identically."""
+    out = {}
+    for k, v in row.items():
+        if v in ("True", "False"):
+            out[k] = v == "True"
+        elif k == "latency_s" and v != "":
+            out[k] = float(v)
+        elif k in ("retries", "tool_calls_n") and v != "":
+            out[k] = int(v)
+        else:
+            out[k] = v
+    for k in FIELDS:
+        out.setdefault(k, "")
+    return out
+
+
 def _rate(rows, key, subset=None):
     rows = [r for r in rows if subset is None or subset(r)]
     if not rows:
@@ -111,30 +128,49 @@ def main() -> None:
     ap.add_argument("--note", default="", help="one sentence: what changed since the previous run")
     ap.add_argument("--pace", type=float, default=0.0,
                     help="seconds to wait between cases (free-tier rate limits); not counted in latency")
+    ap.add_argument("--resume", default="", help="path of a partial results/runs/*.csv to continue")
     args = ap.parse_args()
 
     data = Path(args.cases).read_bytes()
     dataset_hash = hashlib.sha256(data).hexdigest()[:12]
     cases = [json.loads(line) for line in data.decode().splitlines() if line.strip()]
-    run_ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     print(f"profile={args.profile} cases={len(cases)} dataset={dataset_hash} models={describe(args.profile)}")
 
     results = Path("results")
     (results / "runs").mkdir(parents=True, exist_ok=True)
-    run_csv = results / "runs" / f"{args.profile}_{run_ts}.csv"
     rows = []
+    if args.resume:
+        # Continue a partial run (free-tier daily quota): keep scored rows, redo infra-error rows.
+        run_csv = Path(args.resume)
+        run_ts = run_csv.stem.rsplit("_", 1)[1]
+        rows = [_coerce(r) for r in csv.DictReader(run_csv.open()) if not r["infra_error"]]
+        print(f"RESUME {run_csv}: keeping {len(rows)} scored case(s), running the rest")
+    else:
+        run_ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        run_csv = results / "runs" / f"{args.profile}_{run_ts}.csv"
+    done = {r["case_id"] for r in rows}
     interrupted = False
     t_start = time.perf_counter()
     # Rows are written as they finish, so Ctrl+C or a crash never loses completed cases.
     with run_csv.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
+        w.writerows(rows)
         try:
+            first = True
             for i, case in enumerate(cases, 1):
-                if args.pace and i > 1 and not case["expected"]["guardrail_block"]:
+                if case["id"] in done:
+                    continue
+                if args.pace and not first and not case["expected"]["guardrail_block"]:
                     time.sleep(args.pace)  # blocked cases make no model call, so no wait needed
+                first = False
                 r = run_sync(case["prompt"], args.profile)
                 row = score(case, r)
+                if "per day" in row["infra_error"].lower():
+                    print(f"[{i:>2}/{len(cases)}] DAILY QUOTA reached at {case['id']} -- stopping to save quota.\n"
+                          f"Resume after the reset with:  --resume {run_csv}")
+                    interrupted = True
+                    break
                 rows.append(row)
                 w.writerow(row)
                 f.flush()

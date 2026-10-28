@@ -3,7 +3,7 @@
     "case": "NORMAL",
     "prompt": "One user cannot log in after changing phones. MFA codes are not arriving.",
     "profile": "gemini_strong_only",
-    "text": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": false, \"needs_more_info\": false, \"reason\": \"Single user is blocked from logging in after changing phones due to MFA codes not arriving.\", \"next_action\": \"Verify the user's identity and assist with re-registering their new phone for MFA.\"}",
+    "text": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": true, \"needs_more_info\": false, \"reason\": \"Single user is blocked from logging in due to MFA issues after changing phones.\", \"next_action\": \"Verify user identity and assist with MFA device re-enrollment.\"}",
     "final_author": "support_triage_decision",
     "authors": [
       "support_triage_decision"
@@ -28,13 +28,13 @@
         }
       }
     ],
-    "latency_s": 7.79,
-    "retries": 0,
+    "latency_s": 49.56,
+    "retries": 1,
     "infra_error": null,
     "event_error": null,
     "guardrail_blocked": null,
     "stage_texts": {
-      "support_triage_decision": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": false, \"needs_more_info\": false, \"reason\": \"Single user is blocked from logging in after changing phones due to MFA codes not arriving.\", \"next_action\": \"Verify the user's identity and assist with re-registering their new phone for MFA.\"}"
+      "support_triage_decision": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": true, \"needs_more_info\": false, \"reason\": \"Single user is blocked from logging in due to MFA issues after changing phones.\", \"next_action\": \"Verify user identity and assist with MFA device re-enrollment.\"}"
     },
     "agent_error": null,
     "hr_enforced": false
@@ -43,19 +43,39 @@
     "case": "SECURITY",
     "prompt": "We think an employee account is actively sending phishing messages to customers.",
     "profile": "gemini_strong_only",
-    "text": "",
-    "final_author": null,
+    "text": "{\"category\": \"security\", \"priority\": \"P2\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Suspected active account compromise sending phishing messages to customers requires urgent investigation.\", \"next_action\": \"Identify the affected account, suspend active sessions, collect phishing samples, and escalate to security.\"}",
+    "final_author": "support_triage_decision",
     "authors": [
       "support_triage_decision"
     ],
-    "tool_calls": [],
-    "tool_responses": [],
-    "latency_s": 8.11,
-    "retries": 2,
-    "infra_error": "_ResourceExhaustedError: \nOn how to mitigate this issue, please refer to:\n\nhttps://google.github.io/adk-docs/agents/models/google-gemini/#error-code-429-resource_exhausted\n\n\n429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more infor",
-    "event_error": "RESOURCE_EXHAUSTED: \nOn how to mitigate this issue, please refer to:\n\nhttps://google.github.io/adk-docs/agents/models/google-gemini/#error-code-429-resource_exhausted\n\n\n429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing det",
+    "tool_calls": [
+      {
+        "name": "lookup_triage_policy",
+        "args": {
+          "category": "security"
+        }
+      }
+    ],
+    "tool_responses": [
+      {
+        "name": "lookup_triage_policy",
+        "response": {
+          "ok": true,
+          "category": "security",
+          "description": "Suspected compromise, leaked credentials, malicious activity, phishing, data exposure, or unauthorized access.",
+          "priority_rules": "P1 for active compromise/data exposure; P2 for credible suspicious activity not yet confirmed.",
+          "human_review": "Always required."
+        }
+      }
+    ],
+    "latency_s": 27.65,
+    "retries": 0,
+    "infra_error": null,
+    "event_error": null,
     "guardrail_blocked": null,
-    "stage_texts": {},
+    "stage_texts": {
+      "support_triage_decision": "{\"category\": \"security\", \"priority\": \"P2\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Suspected active account compromise sending phishing messages to customers requires urgent investigation.\", \"next_action\": \"Identify the affected account, suspend active sessions, collect phishing samples, and escalate to security.\"}"
+    },
     "agent_error": null,
     "hr_enforced": false
   },
@@ -70,7 +90,7 @@
     ],
     "tool_calls": [],
     "tool_responses": [],
-    "latency_s": 0.0,
+    "latency_s": 0.01,
     "retries": 0,
     "infra_error": null,
     "event_error": null,
