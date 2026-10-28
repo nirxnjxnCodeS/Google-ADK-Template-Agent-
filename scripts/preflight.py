@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 from scripts.runner_utils import parse_output, run_sync
+from support_triage_agent.agent import PROFILES
 
 CASES = [
     ("NORMAL", "One user cannot log in after changing phones. MFA codes are not arriving."),
@@ -55,8 +56,7 @@ def check(name: str, r: dict) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--profile", default="gemini_pipeline",
-                    choices=["gemini_pipeline", "gemini_strong_only", "local"])
+    ap.add_argument("--profile", default="gemini_pipeline", choices=list(PROFILES))
     ap.add_argument("--pace", type=float, default=0.0, help="seconds between cases (free-tier rate limits)")
     args = ap.parse_args()
 

@@ -83,6 +83,13 @@ def before_agent_guardrail(callback_context: CallbackContext) -> Optional[types.
     return types.Content(role="model", parts=[types.Part(text=BLOCKED_JSON)])
 
 
+def store_ticket_text(callback_context: CallbackContext) -> Optional[types.Content]:
+    """Runs AFTER the entry guardrail (only for allowed tickets): keeps the original ticket in
+    state so a later tool-less reviewer step can see it (it runs with include_contents='none')."""
+    callback_context.state["ticket_text"] = _content_text(callback_context.user_content)
+    return None
+
+
 def before_model_guardrail(
     callback_context: CallbackContext,
     llm_request: LlmRequest,
