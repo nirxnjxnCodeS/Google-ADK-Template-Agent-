@@ -109,6 +109,8 @@ def main() -> None:
     ap.add_argument("--profile", required=True, choices=["gemini_pipeline", "gemini_strong_only", "local"])
     ap.add_argument("--cases", default="evals/triage_cases.jsonl")
     ap.add_argument("--note", default="", help="one sentence: what changed since the previous run")
+    ap.add_argument("--pace", type=float, default=0.0,
+                    help="seconds to wait between cases (free-tier rate limits); not counted in latency")
     args = ap.parse_args()
 
     data = Path(args.cases).read_bytes()
@@ -129,6 +131,8 @@ def main() -> None:
         w.writeheader()
         try:
             for i, case in enumerate(cases, 1):
+                if args.pace and i > 1 and not case["expected"]["guardrail_block"]:
+                    time.sleep(args.pace)  # blocked cases make no model call, so no wait needed
                 r = run_sync(case["prompt"], args.profile)
                 row = score(case, r)
                 rows.append(row)
@@ -176,6 +180,8 @@ def main() -> None:
         "loop_limit_hits": sum(1 for r in scored if r["agent_error"]),
         # How often CODE had to correct the model's human_review (model's own behaviour stays visible).
         "hr_enforced_n": sum(1 for r in scored if r["hr_enforced"] is True),
+        "pace_s": args.pace,
+        "retries_total": sum(int(r["retries"] or 0) for r in rows),
         "note": ("INTERRUPTED/PARTIAL: " if interrupted else "") + args.note,
     }
     log = results / "experiment_log.csv"

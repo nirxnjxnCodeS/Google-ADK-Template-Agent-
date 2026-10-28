@@ -9,6 +9,7 @@ Exit codes: 0 = pass, 1 = agent/contract failure, 2 = infra only (retry later).
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 from scripts.runner_utils import parse_output, run_sync
@@ -56,11 +57,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--profile", default="gemini_pipeline",
                     choices=["gemini_pipeline", "gemini_strong_only", "local"])
+    ap.add_argument("--pace", type=float, default=0.0, help="seconds between cases (free-tier rate limits)")
     args = ap.parse_args()
 
     agent_fail = infra_fail = False
     raw = []
-    for name, prompt in CASES:
+    for i, (name, prompt) in enumerate(CASES):
+        if args.pace and i:
+            time.sleep(args.pace)
         r = run_sync(prompt, args.profile)
         raw.append({"case": name, "prompt": prompt, **r})
         print(f"\n[{name}] {r['latency_s']}s  retries={r['retries']}  stages={r['authors']}")
