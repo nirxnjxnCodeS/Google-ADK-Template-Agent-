@@ -3,7 +3,7 @@
     "case": "NORMAL",
     "prompt": "One user cannot log in after changing phones. MFA codes are not arriving.",
     "profile": "glados_only",
-    "text": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"User reports inability to receive MFA codes after phone change, preventing login.\", \"next_action\": \"Verify user's new phone number and MFA method, then resend or reset MFA tokens.\"}",
+    "text": "The user cannot log in after changing phones, and MFA codes are not arriving.\n\n- Category: **access** (login, MFA, permissions)\n- Policy: P2 if multiple users blocked; **P3 for one user blocked**; P4 for how\u2011to. Human review required if privileged/admin access is requested or identity cannot be verified.\n\nThe situation involves a single user, so the policy assigns **P3**. No indication that privileged/admin access is being requested or that identity cannot be verified beyond the normal MFA flow, so **human_review** is not mandatory, but we note it if verification fails.\n\nNo missing material facts: the user\u2019s symptom (MFA codes not arriving after a phone change) is reported.\n\n{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": false, \"needs_more_info\": false, \"reason\": \"Single user blocked from login after phone change; MFA codes not arriving.\", \"next_action\": \"Guide user to verify new phone number enrollment or contact admin to reset MFA device.\"}",
     "final_author": "support_triage_decision",
     "authors": [
       "support_triage_decision"
@@ -13,6 +13,30 @@
         "name": "lookup_triage_policy",
         "args": {
           "category": "access"
+        }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "args": {
+          "category": "security"
+        }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "args": {
+          "category": "billing"
+        }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "args": {
+          "category": "bug"
+        }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "args": {
+          "category": "general"
         }
       }
     ],
@@ -26,15 +50,55 @@
           "priority_rules": "P2 if multiple users cannot access a core system; P3 for one user blocked; P4 for a how-to question.",
           "human_review": "Required if privileged/admin access is requested or identity cannot be verified."
         }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "response": {
+          "ok": true,
+          "category": "security",
+          "description": "Suspected compromise, leaked credentials, malicious activity, phishing, data exposure, or unauthorized access.",
+          "priority_rules": "P1 for active compromise/data exposure; P2 for credible suspicious activity not yet confirmed.",
+          "human_review": "Always required."
+        }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "response": {
+          "ok": true,
+          "category": "billing",
+          "description": "Invoice, charge, subscription, refund, or payment questions.",
+          "priority_rules": "P2 if service is suspended for multiple users; P3 for a disputed charge; P4 for a normal invoice question.",
+          "human_review": "Required for refunds, charge disputes, or account ownership ambiguity."
+        }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "response": {
+          "ok": true,
+          "category": "bug",
+          "description": "Unexpected product behavior, errors, crashes, or broken workflows.",
+          "priority_rules": "P1 for a full production outage; P2 for major multi-user degradation without workaround; P3 for a single-user/core-workflow bug; P4 for cosmetic issues.",
+          "human_review": "Required for P1 and P2."
+        }
+      },
+      {
+        "name": "lookup_triage_policy",
+        "response": {
+          "ok": true,
+          "category": "general",
+          "description": "Questions that do not fit another category.",
+          "priority_rules": "Usually P4. Use UNKNOWN when impact is too unclear to judge.",
+          "human_review": "Not normally required."
+        }
       }
     ],
-    "latency_s": 55.66,
+    "latency_s": 32.89,
     "retries": 0,
     "infra_error": null,
     "event_error": null,
     "guardrail_blocked": null,
     "stage_texts": {
-      "support_triage_decision": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"User reports inability to receive MFA codes after phone change, preventing login.\", \"next_action\": \"Verify user's new phone number and MFA method, then resend or reset MFA tokens.\"}"
+      "support_triage_decision": "The user cannot log in after changing phones, and MFA codes are not arriving.\n\n- Category: **access** (login, MFA, permissions)\n- Policy: P2 if multiple users blocked; **P3 for one user blocked**; P4 for how\u2011to. Human review required if privileged/admin access is requested or identity cannot be verified.\n\nThe situation involves a single user, so the policy assigns **P3**. No indication that privileged/admin access is being requested or that identity cannot be verified beyond the normal MFA flow, so **human_review** is not mandatory, but we note it if verification fails.\n\nNo missing material fa"
     },
     "agent_error": null,
     "hr_enforced": false
@@ -43,7 +107,7 @@
     "case": "SECURITY",
     "prompt": "We think an employee account is actively sending phishing messages to customers.",
     "profile": "glados_only",
-    "text": "{\n  \"category\": \"security\",\n  \"priority\": \"P1\",\n  \"human_review\": true,\n  \"needs_more_info\": false,\n  \"reason\": \"Employee account reported actively sending phishing messages, indicating active compromise per security policy.\",\n  \"next_action\": \"Escalate immediately to security team for investigation and account isolation per P1 protocol.\"\n}",
+    "text": "{\"category\": \"security\", \"priority\": \"P1\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Employee account reported as actively sending phishing messages to customers indicates suspected compromise and malicious activity.\", \"next_action\": \"Immediately escalate to security team and disable the account pending investigation.\"}",
     "final_author": "support_triage_decision",
     "authors": [
       "support_triage_decision"
@@ -68,13 +132,13 @@
         }
       }
     ],
-    "latency_s": 200.26,
+    "latency_s": 12.01,
     "retries": 0,
     "infra_error": null,
     "event_error": null,
     "guardrail_blocked": null,
     "stage_texts": {
-      "support_triage_decision": "{\n  \"category\": \"security\",\n  \"priority\": \"P1\",\n  \"human_review\": true,\n  \"needs_more_info\": false,\n  \"reason\": \"Employee account reported actively sending phishing messages, indicating active compromise per security policy.\",\n  \"next_action\": \"Escalate immediately to security team for investigation and account isolation per P1 protocol.\"\n}"
+      "support_triage_decision": "{\"category\": \"security\", \"priority\": \"P1\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Employee account reported as actively sending phishing messages to customers indicates suspected compromise and malicious activity.\", \"next_action\": \"Immediately escalate to security team and disable the account pending investigation.\"}"
     },
     "agent_error": null,
     "hr_enforced": false
@@ -90,7 +154,7 @@
     ],
     "tool_calls": [],
     "tool_responses": [],
-    "latency_s": 0.01,
+    "latency_s": 0.0,
     "retries": 0,
     "infra_error": null,
     "event_error": null,
