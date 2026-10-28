@@ -24,7 +24,7 @@ from pathlib import Path
 
 from scripts.runner_utils import parse_output, run_sync
 from support_triage_agent.model_registry import describe
-from support_triage_agent.agent import PROMPT_VERSION
+from support_triage_agent.agent import PROFILES, PROMPT_VERSION
 from support_triage_agent.callbacks import GUARDRAIL_VERSION
 from support_triage_agent.policy import CATEGORIES, POLICY_VERSION
 
@@ -123,7 +123,7 @@ def _rate(rows, key, subset=None):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--profile", required=True, choices=["gemini_pipeline", "gemini_strong_only", "local"])
+    ap.add_argument("--profile", required=True, choices=list(PROFILES))
     ap.add_argument("--cases", default="evals/triage_cases.jsonl")
     ap.add_argument("--note", default="", help="one sentence: what changed since the previous run")
     ap.add_argument("--pace", type=float, default=0.0,
