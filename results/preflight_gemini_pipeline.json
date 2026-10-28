@@ -3,35 +3,85 @@
     "case": "NORMAL",
     "prompt": "One user cannot log in after changing phones. MFA codes are not arriving.",
     "profile": "gemini_pipeline",
-    "text": "{\n  \"issue_summary\": \"User cannot log in after changing phones because MFA codes are not arriving.\",\n  \"category_hint\": \"access\",\n  \"affected_scope\": \"single_user\",\n  \"security_signal\": false,\n  \"billing_signal\": false,\n  \"missing_facts\": [\n    \"username or user id\",\n    \"phone number or carrier\",\n    \"MFA method being used\"\n  ]\n}",
-    "final_author": "ticket_fact_extractor",
+    "text": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Single user is blocked from logging in due to missing MFA codes after changing phones.\", \"next_action\": \"Verify user identity and collect account details to assist with MFA reset.\"}",
+    "final_author": "support_triage_decision",
     "authors": [
-      "ticket_fact_extractor"
+      "ticket_fact_extractor",
+      "support_triage_decision"
     ],
-    "tool_calls": [],
-    "tool_responses": [],
-    "latency_s": 94.19,
-    "retries": 1,
-    "infra_error": "ServerError: 504 DEADLINE_EXCEEDED. {'error': {'code': 504, 'message': 'Deadline expired before operation could complete.', 'status': 'DEADLINE_EXCEEDED'}}",
+    "tool_calls": [
+      {
+        "name": "lookup_triage_policy",
+        "args": {
+          "category": "access"
+        }
+      }
+    ],
+    "tool_responses": [
+      {
+        "name": "lookup_triage_policy",
+        "response": {
+          "ok": true,
+          "category": "access",
+          "description": "Login, permissions, account lockout, MFA, or role access.",
+          "priority_rules": "P2 if multiple users cannot access a core system; P3 for one user blocked; P4 for a how-to question.",
+          "human_review": "Required if privileged/admin access is requested or identity cannot be verified."
+        }
+      }
+    ],
+    "latency_s": 25.12,
+    "retries": 0,
+    "infra_error": null,
     "event_error": null,
-    "guardrail_blocked": null
+    "guardrail_blocked": null,
+    "stage_texts": {
+      "ticket_fact_extractor": "{\n  \"issue_summary\": \"User cannot log in after changing phones because MFA codes are not arriving.\",\n  \"category_hint\": \"access\",\n  \"affected_scope\": \"single_user\",\n  \"security_signal\": false,\n  \"billing_signal\": false,\n  \"missing_facts\": [\n    \"username or user id\",\n    \"phone number or device type\",\n    \"delivery method for MFA codes\"\n  ]\n}",
+      "support_triage_decision": "{\"category\": \"access\", \"priority\": \"P3\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Single user is blocked from logging in due to missing MFA codes after changing phones.\", \"next_action\": \"Verify user identity and collect account details to assist with MFA reset.\"}"
+    },
+    "agent_error": null,
+    "hr_enforced": false
   },
   {
     "case": "SECURITY",
     "prompt": "We think an employee account is actively sending phishing messages to customers.",
     "profile": "gemini_pipeline",
-    "text": "{\n  \"issue_summary\": \"Employee account suspected of actively sending phishing messages to customers.\",\n  \"category_hint\": \"security\",\n  \"affected_scope\": \"unknown\",\n  \"security_signal\": true,\n  \"billing_signal\": false,\n  \"missing_facts\": [\n    \"employee account identifier\",\n    \"number of customers affected\",\n    \"evidence or logs of the phishing messages\"\n  ]\n}",
-    "final_author": "ticket_fact_extractor",
+    "text": "{\"category\": \"security\", \"priority\": \"P1\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Report indicates an employee account is actively sending phishing messages to customers, representing an active compromise.\", \"next_action\": \"Escalate to Security Operations immediately to identify and isolate the affected account, and request specific logs from reporter.\"}",
+    "final_author": "support_triage_decision",
     "authors": [
-      "ticket_fact_extractor"
+      "ticket_fact_extractor",
+      "support_triage_decision"
     ],
-    "tool_calls": [],
-    "tool_responses": [],
-    "latency_s": 23.03,
-    "retries": 2,
-    "infra_error": "ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
+    "tool_calls": [
+      {
+        "name": "lookup_triage_policy",
+        "args": {
+          "category": "security"
+        }
+      }
+    ],
+    "tool_responses": [
+      {
+        "name": "lookup_triage_policy",
+        "response": {
+          "ok": true,
+          "category": "security",
+          "description": "Suspected compromise, leaked credentials, malicious activity, phishing, data exposure, or unauthorized access.",
+          "priority_rules": "P1 for active compromise/data exposure; P2 for credible suspicious activity not yet confirmed.",
+          "human_review": "Always required."
+        }
+      }
+    ],
+    "latency_s": 20.69,
+    "retries": 0,
+    "infra_error": null,
     "event_error": null,
-    "guardrail_blocked": null
+    "guardrail_blocked": null,
+    "stage_texts": {
+      "ticket_fact_extractor": "{\n  \"issue_summary\": \"Employee account suspected of actively sending phishing messages to customers.\",\n  \"category_hint\": \"security\",\n  \"affected_scope\": \"unknown\",\n  \"security_signal\": true,\n  \"billing_signal\": false,\n  \"missing_facts\": [\n    \"affected employee account username\",\n    \"evidence or logs of the phishing messages\",\n    \"number of customers affected\"\n  ]\n}",
+      "support_triage_decision": "{\"category\": \"security\", \"priority\": \"P1\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Report indicates an employee account is actively sending phishing messages to customers, representing an active compromise.\", \"next_action\": \"Escalate to Security Operations immediately to identify and isolate the affected account, and request specific logs from reporter.\"}"
+    },
+    "agent_error": null,
+    "hr_enforced": false
   },
   {
     "case": "GUARDRAIL",
@@ -48,6 +98,11 @@
     "retries": 0,
     "infra_error": null,
     "event_error": null,
-    "guardrail_blocked": "secret"
+    "guardrail_blocked": "secret",
+    "stage_texts": {
+      "support_triage_pipeline": "{\"category\": \"general\", \"priority\": \"UNKNOWN\", \"human_review\": true, \"needs_more_info\": true, \"reason\": \"Input blocked by safety policy.\", \"next_action\": \"Remove secrets or prompt-exfiltration instructions and resubmit the support issue.\"}"
+    },
+    "agent_error": null,
+    "hr_enforced": false
   }
 ]

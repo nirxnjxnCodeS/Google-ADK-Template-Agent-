@@ -15,7 +15,9 @@ from google.adk.models import Gemini
 from google.genai import types
 
 GEMINI_TIMEOUT_MS = int(os.environ.get("GEMINI_TIMEOUT_MS", "90000"))
-RETRY = types.HttpRetryOptions(attempts=3, initial_delay=2.0, max_delay=20.0, http_status_codes=[429, 503])
+# Free tier: 3.6 Flash allows 5 requests/MINUTE and Google asks to retry after ~57 s, so the
+# backoff must be able to reach ~60 s (was max 20 s -> all 3 attempts landed inside the same minute).
+RETRY = types.HttpRetryOptions(attempts=4, initial_delay=5.0, max_delay=65.0, http_status_codes=[429, 503])
 
 
 def _gemini(model_id: str) -> Gemini:
